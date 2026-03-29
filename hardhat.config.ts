@@ -13,9 +13,7 @@ const config: HardhatUserConfig = {
   networks: {
     localBasu: {
       url: process.env.LOCAL_BESU_RPC_URL || "http://localhost:8545",
-      accounts: process.env.LOCAL_BESU_PRIVATE_KEY
-        ? [process.env.LOCAL_BESU_PRIVATE_KEY]
-        : [],
+      accounts: process.env.LOCAL_BESU_PRIVATE_KEY ? [process.env.LOCAL_BESU_PRIVATE_KEY] : [],
       httpHeaders: { "Content-Type": "application/json" },
       // TLS off for local dev — warning is expected and acceptable
     },

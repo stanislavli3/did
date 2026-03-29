@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs for the same branch when a new push arrives.
+# This keeps the queue short and saves runner minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ────────────────────────────────────────────────────────────────
+  # Job 1: Lint & Format
+  # Runs in parallel with Build & Test.
+  # Fails fast on any error (solhint errors, eslint errors, or
+  # files that haven't been run through prettier).
+  # ────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Solidity lint (solhint)
+        run: npm run lint:sol
+
+      - name: TypeScript lint (eslint)
+        run: npm run lint:ts
+
+      - name: Formatting check (prettier)
+        run: npm run format:check
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 2: Build & Test
+  # Compiles contracts and runs the full Hardhat test suite.
+  # Runs in parallel with Lint.
+  # ────────────────────────────────────────────────────────────────
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile contracts
+        run: npm run compile
+
+      - name: Run tests
+        run: npm test
+
+      # Upload artifacts so they can be inspected in the Actions UI
+      # if a test fails. Kept for 1 day to avoid storage costs.
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardhat-artifacts-${{ github.sha }}
+          path: |
+            artifacts/
+            typechain-types/
+          retention-days: 1

@@ -7,7 +7,10 @@ import * as fs from "fs";
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying with account:", deployer.address);
-  console.log("Account balance:", (await deployer.provider.getBalance(deployer.address)).toString());
+  console.log(
+    "Account balance:",
+    (await deployer.provider.getBalance(deployer.address)).toString(),
+  );
 
   const ONE_YEAR = 365 * 24 * 60 * 60;
   const unlockTime = Math.floor(Date.now() / 1000) + ONE_YEAR;
@@ -34,4 +37,7 @@ async function main() {
   console.log("Addresses written to deployed-addresses.json");
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

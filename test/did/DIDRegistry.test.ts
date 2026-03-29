@@ -11,7 +11,7 @@ describe("Smoke test — toolchain", () => {
 
     const address = await lock.getAddress();
     const receipt = await hre.ethers.provider.getTransactionReceipt(
-      lock.deploymentTransaction()!.hash
+      lock.deploymentTransaction()!.hash,
     );
 
     expect(address).to.not.equal(hre.ethers.ZeroAddress);
@@ -34,9 +34,7 @@ describe("DIDRegistry — contract skeleton", () => {
 
   it("should expose all 3 event signatures in the ABI", async () => {
     const artifact = await hre.artifacts.readArtifact("DIDRegistry");
-    const eventNames = artifact.abi
-      .filter((x: any) => x.type === "event")
-      .map((x: any) => x.name);
+    const eventNames = artifact.abi.filter((x: any) => x.type === "event").map((x: any) => x.name);
 
     expect(eventNames).to.include("DIDCreated");
     expect(eventNames).to.include("DIDUpdated");
@@ -56,7 +54,7 @@ describe("DIDRegistry — contract skeleton", () => {
   it("should mark resolveDID as a view function in the ABI", async () => {
     const artifact = await hre.artifacts.readArtifact("DIDRegistry");
     const resolveFn = artifact.abi.find(
-      (x: any) => x.type === "function" && x.name === "resolveDID"
+      (x: any) => x.type === "function" && x.name === "resolveDID",
     );
     expect(resolveFn).to.not.be.undefined;
     expect(resolveFn.stateMutability).to.equal("view");

@@ -14,30 +14,29 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 // If OBP runtime requires a different format, update this comment and the validation in createDID.
 struct DIDDocument {
     // SLOT 0: controller (20 bytes) + active (1 byte) + created (8 bytes) = 29 bytes → fits slot 0
-    address controller;  // 20 bytes
-    bool    active;      // 1 byte  — packed with controller
-    uint64  created;     // 8 bytes — packed with controller + active
+    address controller; // 20 bytes
+    bool active; // 1 byte  — packed with controller
+    uint64 created; // 8 bytes — packed with controller + active
     // SLOT 1: updated (8 bytes) — own slot because slot 0 is full (29 bytes used, only 3 remain)
-    uint64  updated;     // 8 bytes
+    uint64 updated; // 8 bytes
     // SLOT 2+: dynamic types always get their own slots
-    bytes   publicKey;   // 64 bytes for Secp256k1 uncompressed — stored as dynamic bytes
-    string  serviceEndpoint;
+    bytes publicKey; // 64 bytes for Secp256k1 uncompressed — stored as dynamic bytes
+    string serviceEndpoint;
 }
 
 contract DIDRegistry is AccessControl, Ownable2Step, ReentrancyGuard {
-
     // ─────────────────────────────────────────────────────────────────────────
     // Roles
     // ─────────────────────────────────────────────────────────────────────────
 
     bytes32 public constant REGISTRAR_ROLE = keccak256("REGISTRAR_ROLE");
-    bytes32 public constant ADMIN_ROLE     = keccak256("ADMIN_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // ─────────────────────────────────────────────────────────────────────────
     // Constants & immutables
     // ─────────────────────────────────────────────────────────────────────────
 
-    string  public constant  DID_METHOD  = "did:example";
+    string public constant DID_METHOD = "did:example";
     uint256 public immutable DEPLOYED_AT; // set to block.timestamp in constructor
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -45,7 +44,7 @@ contract DIDRegistry is AccessControl, Ownable2Step, ReentrancyGuard {
     // ─────────────────────────────────────────────────────────────────────────
 
     mapping(string => DIDDocument) private _documents;
-    mapping(string => bool)        private _exists;
+    mapping(string => bool) private _exists;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
@@ -74,8 +73,8 @@ contract DIDRegistry is AccessControl, Ownable2Step, ReentrancyGuard {
     constructor(address initialRegistrar) Ownable(msg.sender) {
         if (initialRegistrar == address(0)) revert DIDRegistry__ZeroAddress();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ADMIN_ROLE,         msg.sender);
-        _grantRole(REGISTRAR_ROLE,     initialRegistrar);
+        _grantRole(ADMIN_ROLE, msg.sender);
+        _grantRole(REGISTRAR_ROLE, initialRegistrar);
         DEPLOYED_AT = block.timestamp;
     }
 
@@ -96,7 +95,7 @@ contract DIDRegistry is AccessControl, Ownable2Step, ReentrancyGuard {
     /// @param endpoint Service endpoint URI — empty string is valid and means no endpoint
     function createDID(
         string calldata did,
-        bytes  calldata pubKey,
+        bytes calldata pubKey,
         string calldata endpoint
     ) external onlyRole(REGISTRAR_ROLE) nonReentrant {}
 
@@ -107,8 +106,7 @@ contract DIDRegistry is AccessControl, Ownable2Step, ReentrancyGuard {
     ///         the deactivated case separately; a deactivated DID is not the same as not found.
     /// @param  did The DID string to resolve
     /// @return     The DIDDocument struct as stored on-chain (all fields, including publicKey bytes)
-    function resolveDID(string calldata did)
-        external view returns (DIDDocument memory) {}
+    function resolveDID(string calldata did) external view returns (DIDDocument memory) {}
 
     /// @notice Updates the public key and service endpoint of an existing, active DID
     /// @dev    Only callable by the DID's original controller (msg.sender must equal document.controller).
@@ -124,7 +122,7 @@ contract DIDRegistry is AccessControl, Ownable2Step, ReentrancyGuard {
     /// @param  newEndpoint New service endpoint URI (empty string is valid — clears the endpoint)
     function updateDID(
         string calldata did,
-        bytes  calldata newPubKey,
+        bytes calldata newPubKey,
         string calldata newEndpoint
     ) external nonReentrant {}
 

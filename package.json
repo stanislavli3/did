@@ -3,16 +3,27 @@
   "version": "1.0.0",
   "description": "Hyperledger Besu DID Registry — Solidity implementation",
   "scripts": {
-    "compile": "npx hardhat compile",
-    "test": "npx hardhat test",
-    "deploy:local": "npx hardhat run scripts/deploy/deployDIDRegistry.ts --network localBasu",
-    "deploy:obp": "npx hardhat run scripts/deploy/deployDIDRegistry.ts --network obp"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "lint:sol": "solhint 'contracts/**/*.sol'",
+    "lint:ts": "eslint 'test/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts'",
+    "lint": "npm run lint:sol && npm run lint:ts",
+    "format": "prettier --write '**/*.{sol,ts,json}'",
+    "format:check": "prettier --check '**/*.{sol,ts,json}'",
+    "deploy:local": "hardhat run scripts/deploy/deployDIDRegistry.ts --network localBasu",
+    "deploy:obp": "hardhat run scripts/deploy/deployDIDRegistry.ts --network obp"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",
     "@types/node": "^25.5.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "dotenv": "^17.3.1",
+    "eslint": "^8.57.1",
     "hardhat": "^2.28.6",
+    "prettier": "^3.8.1",
+    "prettier-plugin-solidity": "^1.4.3",
+    "solhint": "^4.5.4",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.2"
   },

@@ -1,0 +1,15 @@
+{
+  "extends": "solhint:recommended",
+  "rules": {
+    "compiler-version": ["error", "0.8.24"],
+    "avoid-tx-origin": "error",
+    "no-empty-blocks": "off",
+    "no-unused-vars": "warn",
+    "func-visibility": ["error", { "ignoreConstructors": true }],
+    "not-rely-on-time": "off",
+    "reason-string": "off",
+    "named-parameters-mapping": "off",
+    "no-global-import": "off",
+    "no-console": "warn"
+  }
+}
