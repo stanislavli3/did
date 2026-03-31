@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-library signatureVerifier {
+library SignatureVerifier {
     
     /// @notice Verifies an ECDSA SECP256k1 signature against an EVM address (controller)
     /// @param payloadHash The keccak256 hash of the payload data
