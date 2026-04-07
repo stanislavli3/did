@@ -91,6 +91,52 @@ describe("DID Registry", function () {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
+  // DID format validation (authzXcc.go:199 — 3 colon-separated segments)
+  // ────────────────────────────────────────────────────────────────────────────
+  describe("DID format validation", function () {
+    async function tryCreate(did: string) {
+      const doc   = { ...makeDoc(owner.address), id: did };
+      const nonce = await registry.nonces(did);
+      const s     = await sig.create(owner, did, nonce);
+      return registry.createDid(doc, s, owner.address);
+    }
+
+    it("accepts did:orcl:uuid format", async function () {
+      const orclDid = "did:orcl:550e8400-e29b-41d4-a716-446655440000";
+      const doc     = { ...makeDoc(owner.address), id: orclDid };
+      const nonce   = await registry.nonces(orclDid);
+      const s       = await sig.create(owner, orclDid, nonce);
+      await expect(registry.createDid(doc, s, owner.address)).to.not.be.reverted;
+    });
+
+    it("accepts any string with exactly 2 colons", async function () {
+      await expect(tryCreate("did:example:123")).to.not.be.reverted;
+    });
+
+    it("reverts InvalidDidFormat for empty string", async function () {
+      await expect(tryCreate("")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("reverts InvalidDidFormat for only 1 colon (2 segments)", async function () {
+      await expect(tryCreate("did:example")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("reverts InvalidDidFormat for 3 colons (4 segments)", async function () {
+      await expect(tryCreate("did:orcl:uuid:extra")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("reverts InvalidDidFormat in updateDid as well", async function () {
+      await createDid();
+      const badDoc = { ...makeDoc(owner.address), id: "bad-format" };
+      const nonce  = await registry.nonces(DID);
+      const s      = await sig.update(owner, DID, nonce);
+      // updateDid validates doc.id — bad-format has 0 colons
+      await expect(registry.updateDid(badDoc, s, owner.address))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
   describe("createDid", function () {
     it("returns the DID id", async function () {
       const nonce = await registry.nonces(DID);

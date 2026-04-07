@@ -14,10 +14,26 @@ contract didRegistrar {
 
     error DocumentAlreadyExists();
     error InvalidSignature();
+    error InvalidDidFormat();
+
+    /// @dev Validates the generic DID format: exactly 3 colon-separated segments
+    ///      (e.g. "did:orcl:uuid"). Matches the chaincode's only enforced invariant
+    ///      (authzXcc.go:199 — non-empty + parseable as ssi.URI with method + id).
+    function _validateDid(string memory did) internal pure {
+        bytes memory b = bytes(did);
+        if (b.length == 0) revert InvalidDidFormat();
+        uint8 colons;
+        for (uint i = 0; i < b.length; i++) {
+            if (b[i] == 0x3a) colons++; // 0x3a == ':'
+        }
+        if (colons != 2) revert InvalidDidFormat();
+    }
 
     // Core Registrar Logic
     // Added 'controller' to args representing the EVM address of the signer
     function createDid(DidDocument memory doc, bytes calldata signature, address controller) external returns (string memory) {
+        _validateDid(doc.id);
+
         if (registry[doc.id].state != DidState.Unregistered) {
             revert DocumentAlreadyExists();
         }
