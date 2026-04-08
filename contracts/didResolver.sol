@@ -8,6 +8,7 @@ contract didResolver is didRegistrar {
     
     error DocumentNotFound();
     error FragmentNotFound();
+    error RevocationNotFound();
 
     /// @notice Resolves a full DID Document
     function resolve(string calldata did) external view returns (DidDocument memory, DocumentMetadata memory) {
@@ -36,5 +37,34 @@ contract didResolver is didRegistrar {
         }
         
         revert FragmentNotFound();
+    }
+
+    /// @notice Returns all revocation objects for a DID (path: /revocation)
+    /// @dev Returns empty array when no revocations exist — does not revert
+    function dereferenceRevocations(string calldata did)
+        external
+        view
+        returns (RevocationObject[] memory)
+    {
+        DidRecord storage record = registry[did];
+        if (record.state == DidState.Unregistered) revert DocumentNotFound();
+        return record.document.revocations;
+    }
+
+    /// @notice Returns a single RevocationObject by id (path: /revocation/{revocationId})
+    function dereferenceRevocationById(string calldata did, string calldata revocationId)
+        external
+        view
+        returns (RevocationObject memory)
+    {
+        DidRecord storage record = registry[did];
+        if (record.state == DidState.Unregistered) revert DocumentNotFound();
+
+        RevocationObject[] storage revocations = record.document.revocations;
+        for (uint i = 0; i < revocations.length; i++) {
+            if (keccak256(bytes(revocations[i].id)) == keccak256(bytes(revocationId)))
+                return revocations[i];
+        }
+        revert RevocationNotFound();
     }
 }

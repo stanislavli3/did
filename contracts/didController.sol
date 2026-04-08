@@ -26,6 +26,7 @@ contract didController is didResolver {
     error ControllerNotFound();
     error AuthenticationAlreadyExists();
     error AuthenticationNotFound();
+    error RevocationAlreadyExists();
 
     // Controller Routing & Payload Validation
 
@@ -67,6 +68,11 @@ contract didController is didResolver {
         delete record.document.services;
         for (uint i = 0; i < doc.services.length; i++) {
             record.document.services.push(doc.services[i]);
+        }
+
+        delete record.document.revocations;
+        for (uint i = 0; i < doc.revocations.length; i++) {
+            record.document.revocations.push(doc.revocations[i]);
         }
 
         record.metadata.updated = block.timestamp;
@@ -322,5 +328,57 @@ contract didController is didResolver {
     /// @notice Returns the current state of a DID (Unregistered, Active, Deactivated)
     function getDidState(string calldata did) external view returns (DidState) {
         return registry[did].state;
+    }
+
+    /// @notice Adds a RevocationObject to an existing DID document
+    function addRevocation(
+        string calldata did,
+        RevocationObject calldata revocation,
+        bytes calldata signature,
+        address controller
+    ) external {
+        DidRecord storage record = registry[did];
+        if (record.state != DidState.Active) revert UnauthorizedCaller();
+
+        RevocationObject[] storage revocations = record.document.revocations;
+        for (uint i = 0; i < revocations.length; i++) {
+            if (keccak256(bytes(revocations[i].id)) == keccak256(bytes(revocation.id)))
+                revert RevocationAlreadyExists();
+        }
+
+        bytes32 payloadHash = keccak256(abi.encodePacked(did, "addRevocation", revocation.id, nonces[did]));
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+
+        revocations.push(revocation);
+        record.metadata.updated = block.timestamp;
+        nonces[did]++;
+        emit DidUpdated(did, block.timestamp);
+    }
+
+    /// @notice Removes a RevocationObject from an existing DID document by its id field
+    function removeRevocation(
+        string calldata did,
+        string calldata revocationId,
+        bytes calldata signature,
+        address controller
+    ) external {
+        DidRecord storage record = registry[did];
+        if (record.state != DidState.Active) revert UnauthorizedCaller();
+
+        bytes32 payloadHash = keccak256(abi.encodePacked(did, "removeRevocation", revocationId, nonces[did]));
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+
+        RevocationObject[] storage revocations = record.document.revocations;
+        for (uint i = 0; i < revocations.length; i++) {
+            if (keccak256(bytes(revocations[i].id)) == keccak256(bytes(revocationId))) {
+                revocations[i] = revocations[revocations.length - 1];
+                revocations.pop();
+                record.metadata.updated = block.timestamp;
+                nonces[did]++;
+                emit DidUpdated(did, block.timestamp);
+                return;
+            }
+        }
+        revert RevocationNotFound();
     }
 }

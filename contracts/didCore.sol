@@ -8,6 +8,16 @@ struct Service {
     string serviceEndpoint;
 }
 
+/// @notice Represents a credential revocation list entry within a DID document
+/// @dev Path-addressable via did:besu:123/revocation or did:besu:123/revocation/{id}
+struct RevocationObject {
+    string id;             // e.g. did:besu:123#revlist-1
+    string revocationType; // e.g. "StatusList2021" — avoids reserved keyword 'type'
+    string[] revokedIds;   // credential/resource IDs that are revoked
+    uint256 timestamp;     // block.timestamp of last update
+    string reason;         // human-readable reason; empty string = unspecified
+}
+
 /// @notice Sub-component of document.go
 struct VerificationMethod {
     string id;
@@ -23,6 +33,7 @@ struct DidDocument {
     VerificationMethod[] verificationMethods;
     string[] authentication;
     Service[] services;
+    RevocationObject[] revocations;
 }
 
 /// @notice Equivalent to metadata.go
