@@ -169,16 +169,30 @@ describe("CredDefRegistry", function () {
       await expect(publish()).to.be.revertedWithCustomError(credDefRegistry, "CredDefAlreadyExists");
     });
 
-    // NOTE: A true keccak256 pre-image collision (different inputs → same hash) is
-    // computationally infeasible to construct in a test environment.  The KeyCollision
-    // error path is verified via code review and is exercised by a Foundry invariant
-    // fuzzer in a separate hardening suite.  The pre-image comparison logic ensures
-    // that if two different (issuerId, schemaId, tag) tuples ever produce the same
-    // keccak256 digest, the contract reverts KeyCollision rather than silently
-    // overwriting or emitting a misleading CredDefAlreadyExists.
-    it("KeyCollision error exists on the contract ABI", async function () {
-      const iface = credDefRegistry.interface;
-      expect(iface.getError("KeyCollision")).to.not.be.undefined;
+    it("reverts KeyCollision when slot is occupied by different pre-image inputs", async function () {
+      // Simulate a keccak256 collision by force-writing a record with different field
+      // values at the key that (ISSUER_DID, schemaId, CD_TAG) would naturally produce,
+      // then attempting a normal publish with the original inputs.
+      const harness = await (await ethers.getContractFactory("CredDefRegistryHarness"))
+        .deploy(await didRegistry.getAddress(), await schemaRegistry.getAddress());
+
+      // Compute the key as the contract would
+      const collisionKey = ethers.keccak256(
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ["string", "bytes32", "string"],
+          [ISSUER_DID, schemaId, CD_TAG]
+        )
+      );
+
+      // Occupy the slot with a *different* issuerId (different pre-image, same key)
+      const otherIssuerId = "did:orcl:ffffffff-ffff-4fff-bfff-ffffffffffff";
+      await harness.forceStoreAtKey(collisionKey, otherIssuerId, schemaId, "other-tag");
+
+      // Now a legitimate publish with the original inputs finds a mismatched record → KeyCollision
+      const nonce = await harness.nonces(ISSUER_DID);
+      const sig   = await sigPublishCredDef(owner, ISSUER_DID, schemaId, CD_TAG, nonce);
+      await expect(harness.publishCredDef(ISSUER_DID, schemaId, CL, CD_TAG, CD_VALUE, sig, owner.address))
+        .to.be.revertedWithCustomError(harness, "KeyCollision");
     });
 
     it("reverts InvalidCredDef when issuerId is empty", async function () {

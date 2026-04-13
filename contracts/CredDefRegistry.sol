@@ -37,7 +37,7 @@ contract CredDefRegistry {
 
     // ── storage ───────────────────────────────────────────────────────────────
 
-    mapping(bytes32 => CredDef) private credDefs;
+    mapping(bytes32 => CredDef) internal credDefs;
     mapping(string  => uint256) public  nonces;
 
     IDidRegistry    public immutable didRegistry;

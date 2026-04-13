@@ -149,16 +149,29 @@ describe("SchemaRegistry", function () {
       await expect(publish()).to.be.revertedWithCustomError(schemaRegistry, "SchemaAlreadyExists");
     });
 
-    // NOTE: A true keccak256 pre-image collision (different inputs → same hash) is
-    // computationally infeasible to construct in a test environment.  The KeyCollision
-    // error path is verified via code review and is exercised by a Foundry invariant
-    // fuzzer in a separate hardening suite.  The pre-image comparison logic ensures
-    // that if two different (issuerId, name, version) tuples ever produce the same
-    // keccak256 digest, the contract reverts KeyCollision rather than silently
-    // overwriting the existing record or emitting a misleading SchemaAlreadyExists.
-    it("KeyCollision error exists on the contract ABI", async function () {
-      const iface = schemaRegistry.interface;
-      expect(iface.getError("KeyCollision")).to.not.be.undefined;
+    it("reverts KeyCollision when slot is occupied by different pre-image inputs", async function () {
+      // Simulate a keccak256 collision by force-writing a record with different field
+      // values at the key that (ISSUER_DID, SCHEMA_NAME, SCHEMA_VER) would naturally
+      // produce, then attempting a normal publish with the original inputs.
+      const harness = await (await ethers.getContractFactory("SchemaRegistryHarness"))
+        .deploy(await didRegistry.getAddress());
+
+      // Compute the key as the contract would
+      const collisionKey = ethers.keccak256(
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ["string", "string", "string"],
+          [ISSUER_DID, SCHEMA_NAME, SCHEMA_VER]
+        )
+      );
+
+      // Occupy the slot with a *different* issuerId (different pre-image, same key)
+      await harness.forceStoreAtKey(collisionKey, "did:orcl:ffffffff-ffff-4fff-bfff-ffffffffffff", "OtherSchema", "9.9");
+
+      // Now a legitimate publish with the original inputs finds a mismatched record → KeyCollision
+      const nonce = await harness.nonces(ISSUER_DID);
+      const sig   = await sigPublishSchema(owner, ISSUER_DID, SCHEMA_NAME, SCHEMA_VER, nonce);
+      await expect(harness.publishSchema(ISSUER_DID, SCHEMA_NAME, SCHEMA_VER, ATTR_NAMES, sig, owner.address))
+        .to.be.revertedWithCustomError(harness, "KeyCollision");
     });
 
     it("reverts InvalidSchema when issuerId is empty", async function () {

@@ -26,7 +26,7 @@ contract SchemaRegistry {
 
     // ── storage ───────────────────────────────────────────────────────────────
 
-    mapping(bytes32 => Schema) private schemas;
+    mapping(bytes32 => Schema) internal schemas;
     mapping(string  => uint256) public  nonces;
 
     IDidRegistry public immutable didRegistry;
