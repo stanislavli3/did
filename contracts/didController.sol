@@ -36,13 +36,13 @@ contract didController is didResolver {
         bytes calldata signature,
         address controller
     ) external {
+        // Format validation first — fail fast before any storage read
+        _validateDid(doc.id);
+
         DidRecord storage record = registry[doc.id];
         if (record.state != DidState.Active) {
             revert UnauthorizedCaller();
         }
-
-        // Top-level Payload Validation
-        if (bytes(doc.id).length == 0) revert InvalidPayload();
 
         // Top-level Authorization routing
         // Encodes the action intent to prevent replay attacks across different functions
