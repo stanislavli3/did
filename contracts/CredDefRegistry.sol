@@ -59,6 +59,7 @@ contract CredDefRegistry {
     error InvalidCredDef();
     error IssuerNotActive();
     error SchemaNotFound();
+    error KeyCollision();
 
     // ── constructor ───────────────────────────────────────────────────────────
 
@@ -98,7 +99,14 @@ contract CredDefRegistry {
 
         // ── uniqueness ────────────────────────────────────────────────────────
         id = keccak256(abi.encode(issuerId, schemaId, tag));
-        if (bytes(credDefs[id].issuerId).length != 0) revert CredDefAlreadyExists();
+        if (bytes(credDefs[id].issuerId).length != 0) {
+            if (
+                keccak256(bytes(credDefs[id].issuerId)) != keccak256(bytes(issuerId)) ||
+                credDefs[id].schemaId                   != schemaId                   ||
+                keccak256(bytes(credDefs[id].tag))      != keccak256(bytes(tag))
+            ) revert KeyCollision();
+            revert CredDefAlreadyExists();
+        }
 
         // ── signature verification ────────────────────────────────────────────
         bytes32 payloadHash = keccak256(
@@ -128,5 +136,11 @@ contract CredDefRegistry {
     function getCredDef(bytes32 id) external view returns (CredDef memory) {
         if (bytes(credDefs[id].issuerId).length == 0) revert CredDefNotFound();
         return credDefs[id];
+    }
+
+    /// @notice Returns true if a credential definition with the given id has been published.
+    ///         Used by RevocationRegistry for cross-contract validation.
+    function credDefExists(bytes32 id) external view returns (bool) {
+        return bytes(credDefs[id].issuerId).length != 0;
     }
 }

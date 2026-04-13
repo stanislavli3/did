@@ -16,17 +16,56 @@ contract didRegistrar {
     error InvalidSignature();
     error InvalidDidFormat();
 
-    /// @dev Validates the generic DID format: exactly 3 colon-separated segments
-    ///      (e.g. "did:orcl:uuid"). Matches the chaincode's only enforced invariant
-    ///      (authzXcc.go:199 — non-empty + parseable as ssi.URI with method + id).
+    /// @dev Validates the did:orcl:<uuid-v4> format via byte-level parsing.
+    ///      Segment 0 must be "did", segment 1 must be "orcl",
+    ///      segment 2 must be a RFC 4122 UUID v4 (36 bytes, version=4, variant=[89ab]).
     function _validateDid(string memory did) internal pure {
         bytes memory b = bytes(did);
-        if (b.length == 0) revert InvalidDidFormat();
-        uint8 colons;
-        for (uint i = 0; i < b.length; i++) {
-            if (b[i] == 0x3a) colons++; // 0x3a == ':'
+        uint len = b.length;
+        if (len == 0) revert InvalidDidFormat();
+
+        uint i = 0;
+
+        // ── segment 0: must be "did" ──────────────────────────────────────────
+        if (i + 3 > len || b[i] != 0x64 || b[i+1] != 0x69 || b[i+2] != 0x64)
+            revert InvalidDidFormat();
+        i += 3;
+        if (i >= len || b[i] != 0x3a) revert InvalidDidFormat();
+        i++;
+
+        // ── segment 1: must be "orcl" ─────────────────────────────────────────
+        if (i + 4 > len || b[i] != 0x6f || b[i+1] != 0x72 || b[i+2] != 0x63 || b[i+3] != 0x6c)
+            revert InvalidDidFormat();
+        i += 4;
+        if (i >= len || b[i] != 0x3a) revert InvalidDidFormat();
+        i++;
+
+        // ── segment 2: UUID v4, exactly 36 bytes, no trailing characters ──────
+        if (len - i != 36) revert InvalidDidFormat();
+        _validateUuidV4(b, i);
+    }
+
+    /// @dev Validates a 36-byte UUID v4 segment starting at `offset` in `b`.
+    ///      Format: xxxxxxxx-xxxx-4xxx-[89ab]xxx-xxxxxxxxxxxx
+    function _validateUuidV4(bytes memory b, uint offset) private pure {
+        if (b[offset +  8] != 0x2d ||
+            b[offset + 13] != 0x2d ||
+            b[offset + 18] != 0x2d ||
+            b[offset + 23] != 0x2d) revert InvalidDidFormat();
+
+        if (b[offset + 14] != 0x34) revert InvalidDidFormat();
+
+        bytes1 variant = b[offset + 19];
+        if (variant != 0x38 && variant != 0x39 && variant != 0x61 && variant != 0x62)
+            revert InvalidDidFormat();
+
+        for (uint j = 0; j < 36; j++) {
+            if (j == 8 || j == 13 || j == 18 || j == 23) continue;
+            if (j == 14 || j == 19) continue;
+            bytes1 c = b[offset + j];
+            if (!((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x66)))
+                revert InvalidDidFormat();
         }
-        if (colons != 2) revert InvalidDidFormat();
     }
 
     // Core Registrar Logic

@@ -43,6 +43,7 @@ function makeIssuerDoc(addr: string) {
     ],
     authentication: [VM_ID],
     services: [],
+    revocations: [],
   };
 }
 

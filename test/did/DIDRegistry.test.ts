@@ -5,7 +5,7 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
-const DID            = "did:example:123";
+const DID            = "did:orcl:550e8400-e29b-41d4-a716-446655440000";
 const VM_ID          = `${DID}#key-1`;
 const SERVICE_ID     = `${DID}#service-1`;
 const CONTROLLER_DID = "did:example:controller";
@@ -32,6 +32,7 @@ function makeDoc(signerAddr: string) {
     services: [
       { id: SERVICE_ID, serviceType: "LinkedDomains", serviceEndpoint: "https://example.com" },
     ],
+    revocations: [],
   };
 }
 
@@ -91,7 +92,7 @@ describe("DID Registry", function () {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // DID format validation (authzXcc.go:199 — 3 colon-separated segments)
+  // DID format validation — did:orcl:<uuid-v4> enforcement (byte-level, no regex)
   // ────────────────────────────────────────────────────────────────────────────
   describe("DID format validation", function () {
     async function tryCreate(did: string) {
@@ -101,36 +102,66 @@ describe("DID Registry", function () {
       return registry.createDid(doc, s, owner.address);
     }
 
-    it("accepts did:orcl:uuid format", async function () {
-      const orclDid = "did:orcl:550e8400-e29b-41d4-a716-446655440000";
-      const doc     = { ...makeDoc(owner.address), id: orclDid };
-      const nonce   = await registry.nonces(orclDid);
-      const s       = await sig.create(owner, orclDid, nonce);
-      await expect(registry.createDid(doc, s, owner.address)).to.not.be.reverted;
+    it("accepts a valid did:orcl:<uuid-v4>", async function () {
+      await expect(tryCreate(DID)).to.not.be.reverted;
     });
 
-    it("accepts any string with exactly 2 colons", async function () {
-      await expect(tryCreate("did:example:123")).to.not.be.reverted;
+    it("accepts another valid UUID v4", async function () {
+      await expect(tryCreate("did:orcl:6ba7b810-9dad-41d1-80b4-00c04fd430c8")).to.not.be.reverted;
     });
 
-    it("reverts InvalidDidFormat for empty string", async function () {
+    it("rejects wrong scheme — x:orcl:<uuid>", async function () {
+      await expect(tryCreate("x:orcl:550e8400-e29b-41d4-a716-446655440000"))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("rejects wrong method — did:example:<uuid>", async function () {
+      await expect(tryCreate("did:example:550e8400-e29b-41d4-a716-446655440000"))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("rejects empty string", async function () {
       await expect(tryCreate("")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
     });
 
-    it("reverts InvalidDidFormat for only 1 colon (2 segments)", async function () {
-      await expect(tryCreate("did:example")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    it("rejects missing id segment — did:orcl (1 colon)", async function () {
+      await expect(tryCreate("did:orcl")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
     });
 
-    it("reverts InvalidDidFormat for 3 colons (4 segments)", async function () {
-      await expect(tryCreate("did:orcl:uuid:extra")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    it("rejects 4-segment DID", async function () {
+      await expect(tryCreate("did:orcl:550e8400-e29b-41d4-a716-446655440000:extra"))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
     });
 
-    it("reverts InvalidDidFormat in updateDid as well", async function () {
+    it("rejects non-UUID id — did:orcl:not-a-uuid", async function () {
+      await expect(tryCreate("did:orcl:not-a-uuid"))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("rejects empty id segment — did:orcl:", async function () {
+      await expect(tryCreate("did:orcl:")).to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("rejects UUID v1 — version digit '1' at position 14", async function () {
+      await expect(tryCreate("did:orcl:550e8400-e29b-11d4-a716-446655440000"))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("rejects bad variant digit 'c' at position 19", async function () {
+      await expect(tryCreate("did:orcl:550e8400-e29b-41d4-c716-446655440000"))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("rejects uppercase UUID letters", async function () {
+      await expect(tryCreate("did:orcl:550E8400-E29B-41D4-A716-446655440000"))
+        .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
+    });
+
+    it("rejects InvalidDidFormat in updateDid as well", async function () {
       await createDid();
       const badDoc = { ...makeDoc(owner.address), id: "bad-format" };
       const nonce  = await registry.nonces(DID);
       const s      = await sig.update(owner, DID, nonce);
-      // updateDid validates doc.id — bad-format has 0 colons
       await expect(registry.updateDid(badDoc, s, owner.address))
         .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
     });
@@ -231,6 +262,7 @@ describe("DID Registry", function () {
         ],
         authentication: [newVMId],
         services: [],
+        revocations: [],
       };
       const nonce = await registry.nonces(DID);
       await expect(registry.updateDid(updatedDoc, await sig.update(owner, DID, nonce), owner.address))
@@ -373,6 +405,22 @@ describe("DID Registry", function () {
       const nonce = await registry.nonces(DID);
       await expect(registry.addVerificationMethod(DID, newVM(owner.address), await sig.addVM(other, DID, NEW_VM_ID, nonce), owner.address))
         .to.be.revertedWith("Invalid Signature");
+    });
+
+    it("reverts UnsupportedKeyType for unsupported key type", async function () {
+      await createDid();
+      const nonce    = await registry.nonces(DID);
+      const badKeyVM = { id: NEW_VM_ID, controller: DID, keyType: "Ed25519VerificationKey2018", publicKeyMultibase: encodeAddr(owner.address) };
+      await expect(registry.addVerificationMethod(DID, badKeyVM, await sig.addVM(owner, DID, NEW_VM_ID, nonce), owner.address))
+        .to.be.revertedWithCustomError(registry, "UnsupportedKeyType");
+    });
+
+    it("reverts UnsupportedKeyType for empty keyType", async function () {
+      await createDid();
+      const nonce      = await registry.nonces(DID);
+      const emptyKeyVM = { id: NEW_VM_ID, controller: DID, keyType: "", publicKeyMultibase: encodeAddr(owner.address) };
+      await expect(registry.addVerificationMethod(DID, emptyKeyVM, await sig.addVM(owner, DID, NEW_VM_ID, nonce), owner.address))
+        .to.be.revertedWithCustomError(registry, "UnsupportedKeyType");
     });
   });
 
@@ -612,6 +660,87 @@ describe("DID Registry", function () {
     it("findVerificationMethod reverts for unknown ID", async function () {
       await expect(harness.findVerificationMethod(`${DID}#nonexistent`))
         .to.be.revertedWithCustomError(harness, "VerificationMethodNotFound");
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  describe("addRevocation", function () {
+    const REV_ID  = `${DID}#revlist-1`;
+    const newRev  = () => ({
+      id: REV_ID,
+      revocationType: "StatusList2021",
+      revokedIds: ["cred-001", "cred-002"],
+      timestamp: BigInt(Math.floor(Date.now() / 1000)),
+      reason: "compromised",
+    });
+
+    it("appends revocation and emits DidUpdated", async function () {
+      await createDid();
+      const nonce = await registry.nonces(DID);
+      const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce]));
+      await expect(registry.addRevocation(DID, newRev(), s, owner.address))
+        .to.emit(registry, "DidUpdated");
+      const [doc] = await registry.resolve(DID);
+      expect(doc.revocations.length).to.equal(1);
+      expect(doc.revocations[0].id).to.equal(REV_ID);
+    });
+
+    it("reverts RevocationAlreadyExists on duplicate id", async function () {
+      await createDid();
+      const nonce = await registry.nonces(DID);
+      const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce]));
+      await registry.addRevocation(DID, newRev(), s, owner.address);
+      const nonce2 = await registry.nonces(DID);
+      const s2     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce2]));
+      await expect(registry.addRevocation(DID, newRev(), s2, owner.address))
+        .to.be.revertedWithCustomError(registry, "RevocationAlreadyExists");
+    });
+
+    it("reverts if DID is not active", async function () {
+      const nonce = await registry.nonces(DID);
+      const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce]));
+      await expect(registry.addRevocation(DID, newRev(), s, owner.address))
+        .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  describe("removeRevocation", function () {
+    const REV_ID = `${DID}#revlist-1`;
+
+    async function addRevocation() {
+      const nonce = await registry.nonces(DID);
+      const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce]));
+      await registry.addRevocation(DID, {
+        id: REV_ID, revocationType: "StatusList2021", revokedIds: [],
+        timestamp: BigInt(Math.floor(Date.now() / 1000)), reason: "",
+      }, s, owner.address);
+    }
+
+    it("removes revocation and emits DidUpdated", async function () {
+      await createDid();
+      await addRevocation();
+      const nonce = await registry.nonces(DID);
+      const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "removeRevocation", REV_ID, nonce]));
+      await expect(registry.removeRevocation(DID, REV_ID, s, owner.address))
+        .to.emit(registry, "DidUpdated");
+      const [doc] = await registry.resolve(DID);
+      expect(doc.revocations.length).to.equal(0);
+    });
+
+    it("reverts RevocationNotFound for unknown id", async function () {
+      await createDid();
+      const nonce = await registry.nonces(DID);
+      const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "removeRevocation", "nonexistent", nonce]));
+      await expect(registry.removeRevocation(DID, "nonexistent", s, owner.address))
+        .to.be.revertedWithCustomError(registry, "RevocationNotFound");
+    });
+
+    it("reverts if DID is not active", async function () {
+      const nonce = await registry.nonces(DID);
+      const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "removeRevocation", REV_ID, nonce]));
+      await expect(registry.removeRevocation(DID, REV_ID, s, owner.address))
+        .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
   });
 });
