@@ -59,6 +59,7 @@ contract CredDefRegistry {
     error InvalidCredDef();
     error IssuerNotActive();
     error SchemaNotFound();
+    error KeyCollision();
 
     // ── constructor ───────────────────────────────────────────────────────────
 
@@ -98,7 +99,16 @@ contract CredDefRegistry {
 
         // ── uniqueness ────────────────────────────────────────────────────────
         id = keccak256(abi.encode(issuerId, schemaId, tag));
-        if (bytes(credDefs[id].issuerId).length != 0) revert CredDefAlreadyExists();
+        if (bytes(credDefs[id].issuerId).length != 0) {
+            // Distinguish a true keccak256 collision (different pre-image, same hash)
+            // from a legitimate duplicate submission (identical inputs).
+            if (
+                keccak256(bytes(credDefs[id].issuerId)) != keccak256(bytes(issuerId)) ||
+                credDefs[id].schemaId                   != schemaId                   ||
+                keccak256(bytes(credDefs[id].tag))      != keccak256(bytes(tag))
+            ) revert KeyCollision();
+            revert CredDefAlreadyExists();
+        }
 
         // ── signature verification ────────────────────────────────────────────
         bytes32 payloadHash = keccak256(

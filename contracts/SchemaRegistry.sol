@@ -46,6 +46,7 @@ contract SchemaRegistry {
     error SchemaNotFound();
     error InvalidSchema();
     error IssuerNotActive();
+    error KeyCollision();
 
     // ── constructor ───────────────────────────────────────────────────────────
 
@@ -84,7 +85,16 @@ contract SchemaRegistry {
 
         // ── uniqueness ───────────────────────────────────────────────────────
         id = keccak256(abi.encode(issuerId, name, version));
-        if (bytes(schemas[id].issuerId).length != 0) revert SchemaAlreadyExists();
+        if (bytes(schemas[id].issuerId).length != 0) {
+            // Distinguish a true keccak256 collision (different pre-image, same hash)
+            // from a legitimate duplicate submission (identical inputs).
+            if (
+                keccak256(bytes(schemas[id].issuerId)) != keccak256(bytes(issuerId)) ||
+                keccak256(bytes(schemas[id].name))     != keccak256(bytes(name))     ||
+                keccak256(bytes(schemas[id].version))  != keccak256(bytes(version))
+            ) revert KeyCollision();
+            revert SchemaAlreadyExists();
+        }
 
         // ── signature verification ───────────────────────────────────────────
         bytes32 payloadHash = keccak256(

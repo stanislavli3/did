@@ -26,6 +26,7 @@ contract didController is didResolver {
     error ControllerNotFound();
     error AuthenticationAlreadyExists();
     error AuthenticationNotFound();
+    error UnsupportedKeyType();
 
     // Controller Routing & Payload Validation
 
@@ -128,6 +129,10 @@ contract didController is didResolver {
         for (uint i = 0; i < vms.length; i++) {
             if (keccak256(bytes(vms[i].id)) == keccak256(bytes(method.id))) revert MethodAlreadyExists();
         }
+
+        // Enforce secp256k1 key type — ecrecover only supports this suite
+        if (keccak256(bytes(method.keyType)) != keccak256(bytes("EcdsaSecp256k1RecoveryMethod2020")))
+            revert UnsupportedKeyType();
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "addVerificationMethod", method.id, nonces[did]));
         require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");

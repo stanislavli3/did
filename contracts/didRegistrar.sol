@@ -16,17 +16,64 @@ contract didRegistrar {
     error InvalidSignature();
     error InvalidDidFormat();
 
-    /// @dev Validates the generic DID format: exactly 3 colon-separated segments
-    ///      (e.g. "did:orcl:uuid"). Matches the chaincode's only enforced invariant
-    ///      (authzXcc.go:199 — non-empty + parseable as ssi.URI with method + id).
+    /// @dev Validates the did:orcl:<uuid-v4> format via byte-level parsing.
+    ///      Segment 0 must be "did", segment 1 must be "orcl",
+    ///      segment 2 must be a RFC 4122 UUID v4 (36 bytes, version=4, variant=[89ab]).
+    ///      Matches the chaincode's enforced invariant (authzXcc.go:199) and enforces
+    ///      the Oracle DID method name and identifier format.
     function _validateDid(string memory did) internal pure {
         bytes memory b = bytes(did);
-        if (b.length == 0) revert InvalidDidFormat();
-        uint8 colons;
-        for (uint i = 0; i < b.length; i++) {
-            if (b[i] == 0x3a) colons++; // 0x3a == ':'
+        uint len = b.length;
+        if (len == 0) revert InvalidDidFormat();
+
+        uint i = 0;
+
+        // ── segment 0: must be "did" ──────────────────────────────────────────
+        if (i + 3 > len || b[i] != 0x64 || b[i+1] != 0x69 || b[i+2] != 0x64)
+            revert InvalidDidFormat();
+        i += 3;
+        if (i >= len || b[i] != 0x3a) revert InvalidDidFormat(); // ':' after "did"
+        i++;
+
+        // ── segment 1: must be "orcl" ─────────────────────────────────────────
+        if (i + 4 > len || b[i] != 0x6f || b[i+1] != 0x72 || b[i+2] != 0x63 || b[i+3] != 0x6c)
+            revert InvalidDidFormat();
+        i += 4;
+        if (i >= len || b[i] != 0x3a) revert InvalidDidFormat(); // ':' after "orcl"
+        i++;
+
+        // ── segment 2: UUID v4, exactly 36 bytes, no trailing characters ──────
+        if (len - i != 36) revert InvalidDidFormat();
+        _validateUuidV4(b, i);
+    }
+
+    /// @dev Validates a 36-byte UUID v4 segment starting at `offset` in `b`.
+    ///      Format: xxxxxxxx-xxxx-4xxx-[89ab]xxx-xxxxxxxxxxxx
+    ///      Dashes at positions 8, 13, 18, 23; version digit '4' at position 14;
+    ///      variant digit [89ab] at position 19; all others lowercase hex [0-9a-f].
+    function _validateUuidV4(bytes memory b, uint offset) private pure {
+        // Dashes at fixed positions
+        if (b[offset +  8] != 0x2d ||
+            b[offset + 13] != 0x2d ||
+            b[offset + 18] != 0x2d ||
+            b[offset + 23] != 0x2d) revert InvalidDidFormat();
+
+        // Version digit (position 14) must be '4'
+        if (b[offset + 14] != 0x34) revert InvalidDidFormat();
+
+        // Variant digit (position 19) must be '8', '9', 'a', or 'b'
+        bytes1 variant = b[offset + 19];
+        if (variant != 0x38 && variant != 0x39 && variant != 0x61 && variant != 0x62)
+            revert InvalidDidFormat();
+
+        // All remaining positions must be lowercase hex [0-9a-f]
+        for (uint j = 0; j < 36; j++) {
+            if (j == 8 || j == 13 || j == 18 || j == 23) continue; // dashes
+            if (j == 14 || j == 19) continue; // version + variant (already validated)
+            bytes1 c = b[offset + j];
+            if (!((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x66)))
+                revert InvalidDidFormat();
         }
-        if (colons != 2) revert InvalidDidFormat();
     }
 
     // Core Registrar Logic
