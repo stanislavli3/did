@@ -5,7 +5,7 @@ import "./didCore.sol";
 import "./didRegistrar.sol"; // Assuming registry visibility is changed to internal/public
 
 contract didResolver is didRegistrar {
-    
+
     error DocumentNotFound();
     error FragmentNotFound();
     error RevocationNotFound();
@@ -66,5 +66,16 @@ contract didResolver is didRegistrar {
                 return revocations[i];
         }
         revert RevocationNotFound();
+    }
+
+    /// @notice Returns the EVM address that owns (created) the given DID.
+    ///         Returns address(0) for unregistered DIDs.
+    function getOwner(string calldata did) external view returns (address) {
+        return didOwner[did];
+    }
+
+    /// @notice Returns all DID strings registered by the given EVM address.
+    function getDIDsByOwner(address owner) external view returns (string[] memory) {
+        return ownerDids[owner];
     }
 }

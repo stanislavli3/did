@@ -7,6 +7,8 @@ import "./signatureVerifier.sol";
 contract didRegistrar {
     mapping(string => DidRecord) internal registry;
     mapping(string => uint256) public nonces;
+    mapping(string => address) internal didOwner;
+    mapping(address => string[]) internal ownerDids;
 
     event DidCreated(string indexed did, uint256 timestamp);
     event DidUpdated(string indexed did, uint256 timestamp);
@@ -70,7 +72,7 @@ contract didRegistrar {
 
     // Core Registrar Logic
     // Added 'controller' to args representing the EVM address of the signer
-    function createDid(DidDocument memory doc, bytes calldata signature, address controller) external returns (string memory) {
+    function createDid(DidDocument memory doc, bytes calldata signature) external returns (string memory) {
         _validateDid(doc.id);
 
         if (registry[doc.id].state != DidState.Unregistered) {
@@ -81,7 +83,7 @@ contract didRegistrar {
         bytes32 payloadHash = keccak256(abi.encodePacked(doc.id, nonces[doc.id]));
 
         // 2. Verify signature
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         DidRecord storage record = registry[doc.id];
 
@@ -104,13 +106,16 @@ contract didRegistrar {
         record.metadata.created = block.timestamp;
         record.metadata.updated = block.timestamp;
 
+        didOwner[doc.id] = msg.sender;
+        ownerDids[msg.sender].push(doc.id);
+
         nonces[doc.id]++;
 
         emit DidCreated(doc.id, block.timestamp);
         return doc.id;
     }
 
-    function deactivateDid(string calldata did, bytes calldata signature, address controller) external {
+    function deactivateDid(string calldata did, bytes calldata signature) external {
         if (registry[did].state != DidState.Active) {
             revert("DID is not active");
         }
@@ -119,7 +124,7 @@ contract didRegistrar {
         bytes32 payloadHash = keccak256(abi.encodePacked(did, nonces[did]));
 
         // 2. Verify authorization
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         // 3. Update state
         DidRecord storage record = registry[did];

@@ -34,8 +34,7 @@ contract didController is didResolver {
     /// @notice Updates an existing DID Document
     function updateDid(
         DidDocument memory doc,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         // Format validation first — fail fast before any storage read
         _validateDid(doc.id);
@@ -48,7 +47,7 @@ contract didController is didResolver {
         // Top-level Authorization routing
         // Encodes the action intent to prevent replay attacks across different functions
         bytes32 payloadHash = keccak256(abi.encodePacked(doc.id, "update", nonces[doc.id]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         // State Mutation — replace all document fields
         delete record.document.controller;
@@ -89,8 +88,7 @@ contract didController is didResolver {
         string calldata did,
         address targetContract,
         bytes calldata payload,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external returns (bytes memory) {
 
         DidRecord storage record = registry[did];
@@ -103,7 +101,7 @@ contract didController is didResolver {
 
         // Top-level Authorization routing
         bytes32 payloadHash = keccak256(abi.encodePacked(did, targetContract, payload, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         nonces[did]++;
 
@@ -124,8 +122,7 @@ contract didController is didResolver {
     function addVerificationMethod(
         string calldata did,
         VerificationMethod calldata method,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
@@ -141,7 +138,7 @@ contract didController is didResolver {
             revert UnsupportedKeyType();
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "addVerificationMethod", method.id, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         vms.push(method);
         record.metadata.updated = block.timestamp;
@@ -153,14 +150,13 @@ contract didController is didResolver {
     function removeVerificationMethod(
         string calldata did,
         string calldata methodId,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "removeVerificationMethod", methodId, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         VerificationMethod[] storage vms = record.document.verificationMethods;
         for (uint i = 0; i < vms.length; i++) {
@@ -180,8 +176,7 @@ contract didController is didResolver {
     function addService(
         string calldata did,
         Service calldata service,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
@@ -193,7 +188,7 @@ contract didController is didResolver {
         }
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "addService", service.id, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         services.push(service);
         record.metadata.updated = block.timestamp;
@@ -205,14 +200,13 @@ contract didController is didResolver {
     function removeService(
         string calldata did,
         string calldata serviceId,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "removeService", serviceId, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         Service[] storage services = record.document.services;
         for (uint i = 0; i < services.length; i++) {
@@ -232,8 +226,7 @@ contract didController is didResolver {
     function addController(
         string calldata did,
         string calldata newController,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
@@ -244,7 +237,7 @@ contract didController is didResolver {
         }
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "addController", newController, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         controllers.push(newController);
         record.metadata.updated = block.timestamp;
@@ -256,14 +249,13 @@ contract didController is didResolver {
     function removeController(
         string calldata did,
         string calldata controllerToRemove,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "removeController", controllerToRemove, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         string[] storage controllers = record.document.controller;
         for (uint i = 0; i < controllers.length; i++) {
@@ -283,8 +275,7 @@ contract didController is didResolver {
     function addAuthentication(
         string calldata did,
         string calldata methodId,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
@@ -295,7 +286,7 @@ contract didController is didResolver {
         }
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "addAuthentication", methodId, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         auth.push(methodId);
         record.metadata.updated = block.timestamp;
@@ -307,14 +298,13 @@ contract didController is didResolver {
     function removeAuthentication(
         string calldata did,
         string calldata methodId,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "removeAuthentication", methodId, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         string[] storage auth = record.document.authentication;
         for (uint i = 0; i < auth.length; i++) {
@@ -339,8 +329,7 @@ contract didController is didResolver {
     function addRevocation(
         string calldata did,
         RevocationObject calldata revocation,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
@@ -352,7 +341,7 @@ contract didController is didResolver {
         }
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "addRevocation", revocation.id, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         revocations.push(revocation);
         record.metadata.updated = block.timestamp;
@@ -364,14 +353,13 @@ contract didController is didResolver {
     function removeRevocation(
         string calldata did,
         string calldata revocationId,
-        bytes calldata signature,
-        address controller
+        bytes calldata signature
     ) external {
         DidRecord storage record = registry[did];
         if (record.state != DidState.Active) revert UnauthorizedCaller();
 
         bytes32 payloadHash = keccak256(abi.encodePacked(did, "removeRevocation", revocationId, nonces[did]));
-        require(SignatureVerifier.verifyEVMController(payloadHash, signature, controller), "Invalid Signature");
+        require(SignatureVerifier.verifyEVMController(payloadHash, signature, msg.sender), "Invalid Signature");
 
         RevocationObject[] storage revocations = record.document.revocations;
         for (uint i = 0; i < revocations.length; i++) {
