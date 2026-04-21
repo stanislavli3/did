@@ -83,8 +83,7 @@ describe("SchemaRegistry", function () {
     const nonce = await didRegistry.nonces(ISSUER_DID);
     await didRegistry.createDid(
       makeIssuerDoc(owner.address),
-      await sigCreateDid(owner, ISSUER_DID, nonce),
-      owner.address
+      await sigCreateDid(owner, ISSUER_DID, nonce)
     );
 
     // Deploy SchemaRegistry, passing didRegistry address

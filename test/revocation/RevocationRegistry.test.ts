@@ -97,8 +97,7 @@ describe("RevocationRegistry", function () {
     // Register issuer DID
     await didRegistry.createDid(
       makeIssuerDoc(owner.address),
-      await sigCreate(owner, ISSUER_DID, await didRegistry.nonces(ISSUER_DID)),
-      owner.address
+      await sigCreate(owner, ISSUER_DID, await didRegistry.nonces(ISSUER_DID))
     );
 
     // Publish a schema

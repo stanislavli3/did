@@ -96,7 +96,7 @@ describe("CredDefRegistry", function () {
 
     // Register issuer DID
     const didNonce = await didRegistry.nonces(ISSUER_DID);
-    await didRegistry.createDid(makeIssuerDoc(owner.address), await sigCreateDid(owner, ISSUER_DID, didNonce), owner.address);
+    await didRegistry.createDid(makeIssuerDoc(owner.address), await sigCreateDid(owner, ISSUER_DID, didNonce));
 
     // Publish a schema to reference in cred def tests
     const schemaNonce = await schemaRegistry.nonces(ISSUER_DID);

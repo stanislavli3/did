@@ -88,7 +88,7 @@ describe("DID Registry", function () {
 
   async function createDid() {
     const nonce = await registry.nonces(DID);
-    await registry.createDid(makeDoc(owner.address), await sig.create(owner, DID, nonce), owner.address);
+    await registry.createDid(makeDoc(owner.address), await sig.create(owner, DID, nonce));
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ describe("DID Registry", function () {
       const doc   = { ...makeDoc(owner.address), id: did };
       const nonce = await registry.nonces(did);
       const s     = await sig.create(owner, did, nonce);
-      return registry.createDid(doc, s, owner.address);
+      return registry.createDid(doc, s);
     }
 
     it("accepts a valid did:orcl:<uuid-v4>", async function () {
@@ -162,7 +162,7 @@ describe("DID Registry", function () {
       const badDoc = { ...makeDoc(owner.address), id: "bad-format" };
       const nonce  = await registry.nonces(DID);
       const s      = await sig.update(owner, DID, nonce);
-      await expect(registry.updateDid(badDoc, s, owner.address))
+      await expect(registry.updateDid(badDoc, s))
         .to.be.revertedWithCustomError(registry, "InvalidDidFormat");
     });
   });
@@ -172,7 +172,7 @@ describe("DID Registry", function () {
     it("returns the DID id", async function () {
       const nonce = await registry.nonces(DID);
       const s     = await sig.create(owner, DID, nonce);
-      expect(await registry.createDid.staticCall(makeDoc(owner.address), s, owner.address)).to.equal(DID);
+      expect(await registry.createDid.staticCall(makeDoc(owner.address), s)).to.equal(DID);
     });
 
     it("stores all nested document fields", async function () {
@@ -187,7 +187,7 @@ describe("DID Registry", function () {
     it("emits DidCreated", async function () {
       const nonce = await registry.nonces(DID);
       const s     = await sig.create(owner, DID, nonce);
-      await expect(registry.createDid(makeDoc(owner.address), s, owner.address))
+      await expect(registry.createDid(makeDoc(owner.address), s))
         .to.emit(registry, "DidCreated").withArgs(DID, anyValue);
     });
 
@@ -200,14 +200,14 @@ describe("DID Registry", function () {
       await createDid();
       const nonce = await registry.nonces(DID);
       const s     = await sig.create(owner, DID, nonce);
-      await expect(registry.createDid(makeDoc(owner.address), s, owner.address))
+      await expect(registry.createDid(makeDoc(owner.address), s))
         .to.be.revertedWithCustomError(registry, "DocumentAlreadyExists");
     });
 
     it("reverts on wrong signer", async function () {
       const nonce = await registry.nonces(DID);
       const s     = await sig.create(other, DID, nonce); // signed by other, claimed as owner
-      await expect(registry.createDid(makeDoc(owner.address), s, owner.address))
+      await expect(registry.createDid(makeDoc(owner.address), s))
         .to.be.revertedWith("Invalid Signature");
     });
   });
@@ -265,7 +265,7 @@ describe("DID Registry", function () {
         revocations: [],
       };
       const nonce = await registry.nonces(DID);
-      await expect(registry.updateDid(updatedDoc, await sig.update(owner, DID, nonce), owner.address))
+      await expect(registry.updateDid(updatedDoc, await sig.update(owner, DID, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.verificationMethods[0].id).to.equal(newVMId);
@@ -275,14 +275,14 @@ describe("DID Registry", function () {
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.updateDid(makeDoc(owner.address), await sig.update(owner, DID, nonce), owner.address))
+      await expect(registry.updateDid(makeDoc(owner.address), await sig.update(owner, DID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
 
     it("reverts on wrong signer", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.updateDid(makeDoc(owner.address), await sig.update(other, DID, nonce), owner.address))
+      await expect(registry.updateDid(makeDoc(owner.address), await sig.update(other, DID, nonce)))
         .to.be.revertedWith("Invalid Signature");
     });
   });
@@ -292,21 +292,21 @@ describe("DID Registry", function () {
     it("sets state to Deactivated and emits DidDeactivated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.deactivateDid(DID, await sig.deactivate(owner, DID, nonce), owner.address))
+      await expect(registry.deactivateDid(DID, await sig.deactivate(owner, DID, nonce)))
         .to.emit(registry, "DidDeactivated").withArgs(DID, anyValue);
       expect(await registry.getDidState(DID)).to.equal(2n);
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.deactivateDid(DID, await sig.deactivate(owner, DID, nonce), owner.address))
+      await expect(registry.deactivateDid(DID, await sig.deactivate(owner, DID, nonce)))
         .to.be.revertedWith("DID is not active");
     });
 
     it("reverts on wrong signer", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.deactivateDid(DID, await sig.deactivate(other, DID, nonce), owner.address))
+      await expect(registry.deactivateDid(DID, await sig.deactivate(other, DID, nonce)))
         .to.be.revertedWith("Invalid Signature");
     });
   });
@@ -325,7 +325,7 @@ describe("DID Registry", function () {
     it("returns 2 (Deactivated) after deactivation", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await registry.deactivateDid(DID, await sig.deactivate(owner, DID, nonce), owner.address);
+      await registry.deactivateDid(DID, await sig.deactivate(owner, DID, nonce));
       expect(await registry.getDidState(DID)).to.equal(2n);
     });
   });
@@ -345,27 +345,27 @@ describe("DID Registry", function () {
     it("calls the target and mutates its state", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await registry.executeCrossContract(DID, targetAddr, payload, await sig.crossContract(owner, DID, targetAddr, payload, nonce), owner.address);
+      await registry.executeCrossContract(DID, targetAddr, payload, await sig.crossContract(owner, DID, targetAddr, payload, nonce));
       expect(await target.value()).to.equal(42n);
     });
 
     it("emits CrossContractExecuted", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.executeCrossContract(DID, targetAddr, payload, await sig.crossContract(owner, DID, targetAddr, payload, nonce), owner.address))
+      await expect(registry.executeCrossContract(DID, targetAddr, payload, await sig.crossContract(owner, DID, targetAddr, payload, nonce)))
         .to.emit(registry, "CrossContractExecuted").withArgs(DID, targetAddr, true);
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.executeCrossContract(DID, targetAddr, payload, await sig.crossContract(owner, DID, targetAddr, payload, nonce), owner.address))
+      await expect(registry.executeCrossContract(DID, targetAddr, payload, await sig.crossContract(owner, DID, targetAddr, payload, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
 
     it("reverts on zero-address target", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.executeCrossContract(DID, ethers.ZeroAddress, payload, await sig.crossContract(owner, DID, ethers.ZeroAddress, payload, nonce), owner.address))
+      await expect(registry.executeCrossContract(DID, ethers.ZeroAddress, payload, await sig.crossContract(owner, DID, ethers.ZeroAddress, payload, nonce)))
         .to.be.revertedWithCustomError(registry, "InvalidPayload");
     });
   });
@@ -380,7 +380,7 @@ describe("DID Registry", function () {
     it("appends the method and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addVerificationMethod(DID, newVM(owner.address), await sig.addVM(owner, DID, NEW_VM_ID, nonce), owner.address))
+      await expect(registry.addVerificationMethod(DID, newVM(owner.address), await sig.addVM(owner, DID, NEW_VM_ID, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.verificationMethods.length).to.equal(2);
@@ -390,20 +390,20 @@ describe("DID Registry", function () {
     it("reverts on duplicate method ID", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addVerificationMethod(DID, { ...newVM(owner.address), id: VM_ID }, await sig.addVM(owner, DID, VM_ID, nonce), owner.address))
+      await expect(registry.addVerificationMethod(DID, { ...newVM(owner.address), id: VM_ID }, await sig.addVM(owner, DID, VM_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "MethodAlreadyExists");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.addVerificationMethod(DID, newVM(owner.address), await sig.addVM(owner, DID, NEW_VM_ID, nonce), owner.address))
+      await expect(registry.addVerificationMethod(DID, newVM(owner.address), await sig.addVM(owner, DID, NEW_VM_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
 
     it("reverts on wrong signer", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addVerificationMethod(DID, newVM(owner.address), await sig.addVM(other, DID, NEW_VM_ID, nonce), owner.address))
+      await expect(registry.addVerificationMethod(DID, newVM(owner.address), await sig.addVM(other, DID, NEW_VM_ID, nonce)))
         .to.be.revertedWith("Invalid Signature");
     });
 
@@ -411,7 +411,7 @@ describe("DID Registry", function () {
       await createDid();
       const nonce    = await registry.nonces(DID);
       const badKeyVM = { id: NEW_VM_ID, controller: DID, keyType: "Ed25519VerificationKey2018", publicKeyMultibase: encodeAddr(owner.address) };
-      await expect(registry.addVerificationMethod(DID, badKeyVM, await sig.addVM(owner, DID, NEW_VM_ID, nonce), owner.address))
+      await expect(registry.addVerificationMethod(DID, badKeyVM, await sig.addVM(owner, DID, NEW_VM_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnsupportedKeyType");
     });
 
@@ -419,7 +419,7 @@ describe("DID Registry", function () {
       await createDid();
       const nonce      = await registry.nonces(DID);
       const emptyKeyVM = { id: NEW_VM_ID, controller: DID, keyType: "", publicKeyMultibase: encodeAddr(owner.address) };
-      await expect(registry.addVerificationMethod(DID, emptyKeyVM, await sig.addVM(owner, DID, NEW_VM_ID, nonce), owner.address))
+      await expect(registry.addVerificationMethod(DID, emptyKeyVM, await sig.addVM(owner, DID, NEW_VM_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnsupportedKeyType");
     });
   });
@@ -429,7 +429,7 @@ describe("DID Registry", function () {
     it("removes the method and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeVerificationMethod(DID, VM_ID, await sig.removeVM(owner, DID, VM_ID, nonce), owner.address))
+      await expect(registry.removeVerificationMethod(DID, VM_ID, await sig.removeVM(owner, DID, VM_ID, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.verificationMethods.length).to.equal(0);
@@ -438,13 +438,13 @@ describe("DID Registry", function () {
     it("reverts if method not found", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeVerificationMethod(DID, `${DID}#nonexistent`, await sig.removeVM(owner, DID, `${DID}#nonexistent`, nonce), owner.address))
+      await expect(registry.removeVerificationMethod(DID, `${DID}#nonexistent`, await sig.removeVM(owner, DID, `${DID}#nonexistent`, nonce)))
         .to.be.revertedWithCustomError(registry, "MethodNotFound");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeVerificationMethod(DID, VM_ID, await sig.removeVM(owner, DID, VM_ID, nonce), owner.address))
+      await expect(registry.removeVerificationMethod(DID, VM_ID, await sig.removeVM(owner, DID, VM_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
   });
@@ -457,7 +457,7 @@ describe("DID Registry", function () {
     it("appends the service and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addService(DID, newSvc(), await sig.addService(owner, DID, NEW_SVC, nonce), owner.address))
+      await expect(registry.addService(DID, newSvc(), await sig.addService(owner, DID, NEW_SVC, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.services.length).to.equal(2);
@@ -467,20 +467,20 @@ describe("DID Registry", function () {
     it("reverts on duplicate service ID", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addService(DID, { ...newSvc(), id: SERVICE_ID }, await sig.addService(owner, DID, SERVICE_ID, nonce), owner.address))
+      await expect(registry.addService(DID, { ...newSvc(), id: SERVICE_ID }, await sig.addService(owner, DID, SERVICE_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "ServiceAlreadyExists");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.addService(DID, newSvc(), await sig.addService(owner, DID, NEW_SVC, nonce), owner.address))
+      await expect(registry.addService(DID, newSvc(), await sig.addService(owner, DID, NEW_SVC, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
 
     it("reverts on wrong signer", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addService(DID, newSvc(), await sig.addService(other, DID, NEW_SVC, nonce), owner.address))
+      await expect(registry.addService(DID, newSvc(), await sig.addService(other, DID, NEW_SVC, nonce)))
         .to.be.revertedWith("Invalid Signature");
     });
   });
@@ -490,7 +490,7 @@ describe("DID Registry", function () {
     it("removes the service and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeService(DID, SERVICE_ID, await sig.removeService(owner, DID, SERVICE_ID, nonce), owner.address))
+      await expect(registry.removeService(DID, SERVICE_ID, await sig.removeService(owner, DID, SERVICE_ID, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.services.length).to.equal(0);
@@ -499,13 +499,13 @@ describe("DID Registry", function () {
     it("reverts if service not found", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeService(DID, `${DID}#nonexistent`, await sig.removeService(owner, DID, `${DID}#nonexistent`, nonce), owner.address))
+      await expect(registry.removeService(DID, `${DID}#nonexistent`, await sig.removeService(owner, DID, `${DID}#nonexistent`, nonce)))
         .to.be.revertedWithCustomError(registry, "ServiceNotFound");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeService(DID, SERVICE_ID, await sig.removeService(owner, DID, SERVICE_ID, nonce), owner.address))
+      await expect(registry.removeService(DID, SERVICE_ID, await sig.removeService(owner, DID, SERVICE_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
   });
@@ -517,7 +517,7 @@ describe("DID Registry", function () {
     it("appends the controller and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addController(DID, NEW_CTRL, await sig.addController(owner, DID, NEW_CTRL, nonce), owner.address))
+      await expect(registry.addController(DID, NEW_CTRL, await sig.addController(owner, DID, NEW_CTRL, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.controller).to.include(NEW_CTRL);
@@ -526,20 +526,20 @@ describe("DID Registry", function () {
     it("reverts on duplicate controller", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addController(DID, CONTROLLER_DID, await sig.addController(owner, DID, CONTROLLER_DID, nonce), owner.address))
+      await expect(registry.addController(DID, CONTROLLER_DID, await sig.addController(owner, DID, CONTROLLER_DID, nonce)))
         .to.be.revertedWithCustomError(registry, "ControllerAlreadyExists");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.addController(DID, NEW_CTRL, await sig.addController(owner, DID, NEW_CTRL, nonce), owner.address))
+      await expect(registry.addController(DID, NEW_CTRL, await sig.addController(owner, DID, NEW_CTRL, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
 
     it("reverts on wrong signer", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addController(DID, NEW_CTRL, await sig.addController(other, DID, NEW_CTRL, nonce), owner.address))
+      await expect(registry.addController(DID, NEW_CTRL, await sig.addController(other, DID, NEW_CTRL, nonce)))
         .to.be.revertedWith("Invalid Signature");
     });
   });
@@ -549,7 +549,7 @@ describe("DID Registry", function () {
     it("removes the controller and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeController(DID, CONTROLLER_DID, await sig.removeController(owner, DID, CONTROLLER_DID, nonce), owner.address))
+      await expect(registry.removeController(DID, CONTROLLER_DID, await sig.removeController(owner, DID, CONTROLLER_DID, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.controller).to.not.include(CONTROLLER_DID);
@@ -558,13 +558,13 @@ describe("DID Registry", function () {
     it("reverts if controller not found", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeController(DID, "did:example:nonexistent", await sig.removeController(owner, DID, "did:example:nonexistent", nonce), owner.address))
+      await expect(registry.removeController(DID, "did:example:nonexistent", await sig.removeController(owner, DID, "did:example:nonexistent", nonce)))
         .to.be.revertedWithCustomError(registry, "ControllerNotFound");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeController(DID, CONTROLLER_DID, await sig.removeController(owner, DID, CONTROLLER_DID, nonce), owner.address))
+      await expect(registry.removeController(DID, CONTROLLER_DID, await sig.removeController(owner, DID, CONTROLLER_DID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
   });
@@ -576,7 +576,7 @@ describe("DID Registry", function () {
     it("appends the method reference and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addAuthentication(DID, NEW_AUTH, await sig.addAuth(owner, DID, NEW_AUTH, nonce), owner.address))
+      await expect(registry.addAuthentication(DID, NEW_AUTH, await sig.addAuth(owner, DID, NEW_AUTH, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.authentication).to.include(NEW_AUTH);
@@ -585,20 +585,20 @@ describe("DID Registry", function () {
     it("reverts on duplicate authentication entry", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addAuthentication(DID, VM_ID, await sig.addAuth(owner, DID, VM_ID, nonce), owner.address))
+      await expect(registry.addAuthentication(DID, VM_ID, await sig.addAuth(owner, DID, VM_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "AuthenticationAlreadyExists");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.addAuthentication(DID, NEW_AUTH, await sig.addAuth(owner, DID, NEW_AUTH, nonce), owner.address))
+      await expect(registry.addAuthentication(DID, NEW_AUTH, await sig.addAuth(owner, DID, NEW_AUTH, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
 
     it("reverts on wrong signer", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.addAuthentication(DID, NEW_AUTH, await sig.addAuth(other, DID, NEW_AUTH, nonce), owner.address))
+      await expect(registry.addAuthentication(DID, NEW_AUTH, await sig.addAuth(other, DID, NEW_AUTH, nonce)))
         .to.be.revertedWith("Invalid Signature");
     });
   });
@@ -608,7 +608,7 @@ describe("DID Registry", function () {
     it("removes the entry and emits DidUpdated", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeAuthentication(DID, VM_ID, await sig.removeAuth(owner, DID, VM_ID, nonce), owner.address))
+      await expect(registry.removeAuthentication(DID, VM_ID, await sig.removeAuth(owner, DID, VM_ID, nonce)))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.authentication).to.not.include(VM_ID);
@@ -617,13 +617,13 @@ describe("DID Registry", function () {
     it("reverts if entry not found", async function () {
       await createDid();
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeAuthentication(DID, `${DID}#nonexistent`, await sig.removeAuth(owner, DID, `${DID}#nonexistent`, nonce), owner.address))
+      await expect(registry.removeAuthentication(DID, `${DID}#nonexistent`, await sig.removeAuth(owner, DID, `${DID}#nonexistent`, nonce)))
         .to.be.revertedWithCustomError(registry, "AuthenticationNotFound");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
-      await expect(registry.removeAuthentication(DID, VM_ID, await sig.removeAuth(owner, DID, VM_ID, nonce), owner.address))
+      await expect(registry.removeAuthentication(DID, VM_ID, await sig.removeAuth(owner, DID, VM_ID, nonce)))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
   });
@@ -678,7 +678,7 @@ describe("DID Registry", function () {
       await createDid();
       const nonce = await registry.nonces(DID);
       const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce]));
-      await expect(registry.addRevocation(DID, newRev(), s, owner.address))
+      await expect(registry.addRevocation(DID, newRev(), s))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.revocations.length).to.equal(1);
@@ -689,17 +689,17 @@ describe("DID Registry", function () {
       await createDid();
       const nonce = await registry.nonces(DID);
       const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce]));
-      await registry.addRevocation(DID, newRev(), s, owner.address);
+      await registry.addRevocation(DID, newRev(), s);
       const nonce2 = await registry.nonces(DID);
       const s2     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce2]));
-      await expect(registry.addRevocation(DID, newRev(), s2, owner.address))
+      await expect(registry.addRevocation(DID, newRev(), s2))
         .to.be.revertedWithCustomError(registry, "RevocationAlreadyExists");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
       const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "addRevocation", REV_ID, nonce]));
-      await expect(registry.addRevocation(DID, newRev(), s, owner.address))
+      await expect(registry.addRevocation(DID, newRev(), s))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
   });
@@ -714,7 +714,7 @@ describe("DID Registry", function () {
       await registry.addRevocation(DID, {
         id: REV_ID, revocationType: "StatusList2021", revokedIds: [],
         timestamp: BigInt(Math.floor(Date.now() / 1000)), reason: "",
-      }, s, owner.address);
+      }, s);
     }
 
     it("removes revocation and emits DidUpdated", async function () {
@@ -722,7 +722,7 @@ describe("DID Registry", function () {
       await addRevocation();
       const nonce = await registry.nonces(DID);
       const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "removeRevocation", REV_ID, nonce]));
-      await expect(registry.removeRevocation(DID, REV_ID, s, owner.address))
+      await expect(registry.removeRevocation(DID, REV_ID, s))
         .to.emit(registry, "DidUpdated");
       const [doc] = await registry.resolve(DID);
       expect(doc.revocations.length).to.equal(0);
@@ -732,14 +732,14 @@ describe("DID Registry", function () {
       await createDid();
       const nonce = await registry.nonces(DID);
       const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "removeRevocation", "nonexistent", nonce]));
-      await expect(registry.removeRevocation(DID, "nonexistent", s, owner.address))
+      await expect(registry.removeRevocation(DID, "nonexistent", s))
         .to.be.revertedWithCustomError(registry, "RevocationNotFound");
     });
 
     it("reverts if DID is not active", async function () {
       const nonce = await registry.nonces(DID);
       const s     = await sign(owner, h(["string","string","string","uint256"], [DID, "removeRevocation", REV_ID, nonce]));
-      await expect(registry.removeRevocation(DID, REV_ID, s, owner.address))
+      await expect(registry.removeRevocation(DID, REV_ID, s))
         .to.be.revertedWithCustomError(registry, "UnauthorizedCaller");
     });
   });
